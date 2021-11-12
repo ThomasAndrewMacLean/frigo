@@ -1,27 +1,36 @@
 const express = require("express");
 const app = express();
 const port = 3000;
+const monk = require("monk");
+require("dotenv").config();
+
+// Connection URL
+const url = process.env.DB_CONNECTION_STRING;
+
+const db = monk(url);
+
 app.use(express.static("public"));
-var fs = require("fs"); // this engine requires the fs module
-app.engine("ntl", function (filePath, options, callback) {
-  // define the template engine
-  fs.readFile(filePath, function (err, content) {
-    if (err) return callback(err);
-    // this is an extremely simple template engine
-    var rendered = content
-      .toString()
-      .replace("#title#", "<title>" + options.title + "</title>")
-      .replace("#message#", "<h1>" + options.message + "</h1>");
-    return callback(null, rendered);
+app.use(express.json());
+
+app.set("view engine", "pug");
+
+app.set("views", "./views");
+
+app.get("/", async (req, res) => {
+  const usersCollection = db.get("users");
+  const users = await usersCollection.find();
+
+  res.render("index", {
+    title: "Hey",
+    message: users.map((x) => x.name).join(", "),
   });
 });
-app.set("views", "./views"); // specify the views directory
-app.set("view engine", "ntl"); // register the template engine
 
-
-app.get('/', function (req, res) {
-    res.render('index', { title: 'Hey', message: 'Hello there!' })
-  })
+app.post("/", async (req, res) => {
+  const users = db.get("users");
+  const newUser = await users.insert({ name: req.body.name });
+  res.json({ newUser });
+});
 
 app.listen(port, () => {
   console.log(`Example app listening at http://localhost:${port}`);
